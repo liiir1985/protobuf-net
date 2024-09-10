@@ -1,0 +1,226 @@
+public sealed class @Model.TypeInfo.Name
+{
+    @foreach(var val in @Model.TypeInfo.EnumTypes)
+    {
+@:@Raw(Model.GenerateEnum(val, 1))
+    }
+    @foreach(var val in @Model.TypeInfo.NestedTypes)
+    {
+        if(@Model.IsMap(val))
+            continue;
+@:@Raw(Model.GenerateType(val, 1))
+    }
+    @{
+        string GetMessageTypeName(Google.Protobuf.Reflection.FieldDescriptorProto proto)
+        {
+            if(@Model.IsFieldMap(proto))
+                return $"Dictionary<{GetCSharpType(@Model.GetMapFieldType(proto, true))},{GetCSharpType(@Model.GetMapFieldType(proto, true))}>";
+            else
+                return @Model.GetMessageTypeName(proto);
+        }
+
+        string GetCSharpType(Google.Protobuf.Reflection.FieldDescriptorProto proto, bool ignoreRepeated = false)
+        {
+            if(!ignoreRepeated && Model.IsRepeated(proto))
+                return $"List<{GetCSharpType(proto, true)}>";
+            switch(proto.type)
+            {
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeDouble:
+                    return "double";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFloat:
+                    return "float";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSfixed64:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSint64:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeInt64:
+                    return "long";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeUint64:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFixed64:
+                    return "ulong";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSfixed32:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSint32:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeInt32:
+                    return "int";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBool:
+                    return "bool";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeMessage:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeEnum:
+                    return GetMessageTypeName(proto);
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBytes:
+                    return "ByteString";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeString:
+                    return "string";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeUint32:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFixed32:
+                    return "uint";
+            }
+            return "";
+        }
+
+        string GetReader(Google.Protobuf.Reflection.FieldDescriptorProto proto)
+        {
+            switch(proto.type)
+            {
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeDouble:
+                    return "ReadDouble()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFloat:
+                    return "ReadFloat()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFixed64:
+                    return "ReadFixed64()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSfixed64:
+                    return "ReadSFixed64()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSint64:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeInt64:
+                    return "ReadInt64()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeUint64:
+                    return "ReadUInt64()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFixed32:
+                    return "ReadFixed32()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSfixed32:
+                    return "ReadSFixed32()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSint32:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeInt32:
+                    return "ReadInt32()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBool:
+                    return "ReadBool()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeEnum:
+                    return "ReadEnum()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBytes:
+                    return "ReadBytes()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeString:
+                    return "ReadString()";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeUint32:
+                    return "ReadUInt32()";
+            }
+            return "";
+        }
+
+        string GetWriter(Google.Protobuf.Reflection.FieldDescriptorProto proto)
+        {
+            switch(proto.type)
+            {
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeDouble:
+                    return "WriteDouble";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFloat:
+                    return "WriteFloat";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFixed64:
+                    return "WriteFixed64";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSfixed64:
+                    return "WriteSFixed64";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSint64:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeInt64:
+                    return "WriteInt64";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeUint64:
+                    return "WriteUInt64";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFixed32:
+                    return "WriteReadFixed32";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSfixed32:
+                    return "WriteSFixed32";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSint32:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeInt32:
+                    return "WriteInt32";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBool:
+                    return "WriteBool";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeEnum:
+                    return "WriteEnum";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBytes:
+                    return "WriteBytes";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeString:
+                    return "WriteString";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeUint32:
+                    return "WriteUInt32";
+            }
+            return "";
+        }
+    }
+    @foreach(var val in @Model.TypeInfo.Fields)
+    {
+    @:
+    @:bool has@(Model.ToUpperCamel(@val.Name));
+    @:public bool Has@(Model.ToUpperCamel(@val.Name)) => has@(Model.ToUpperCamel(@val.Name));
+    @:@Raw(GetCSharpType(val)) _@val.Name;
+    @:public @Raw(GetCSharpType(val)) @(Model.ToUpperCamel(@val.Name))
+    @:{
+    @:    get => _@val.Name;
+    @:    set
+    @:    {
+    @:        has@(Model.ToUpperCamel(@val.Name)) = true;
+    @:        _@val.Name = value;
+    @:    }
+    @:}
+    }
+
+    private int memoizedSerializedSize = -1;
+    public int SerializedSize 
+    {
+        get 
+        {
+            int size = memoizedSerializedSize;
+            if (size != -1) return size;
+            return CalcSerializedSize();
+        }
+    }
+
+    private int CalcSerializedSize() 
+    {
+        int size = memoizedSerializedSize;
+        if (size != -1) return size;
+      
+        size = 0;
+
+        memoizedSerializedSize = size;
+        return size;
+    }
+
+    public void WriteTo(CodedOutputStream output)
+    {
+        @foreach(var val in @Model.TypeInfo.Fields)
+        {
+        @:if(has@(Model.ToUpperCamel(@val.Name)))
+        @:{
+        @:    output.WriteTag(@(Model.MakeTag(val.Number, val.type)));
+            switch(val.type)
+            {
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeMessage:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeEnum:
+                    break;
+                default:
+        @:    output.@(GetWriter(val))(_@val.Name);
+                    break;
+            }
+        @:}
+        }
+    }
+
+    public void MergeFrom(CodedInputStream input) 
+    {
+        @if(@Model.TypeInfo.Fields.Count > 0)
+        {
+        @:uint tag;
+        @:while((tag = input.ReadTag()) != 0) 
+        @:{
+        @:    switch (tag) 
+        @:    {
+                @foreach(var val in @Model.TypeInfo.Fields)
+                {
+                @:case @(Model.MakeTag(val.Number, val.type)):
+                    switch(val.type)
+                    {                        
+                        case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeMessage:
+                @:    _@val.Name = new @(Raw(GetCSharpType(val)))();
+                @:    _@(val.Name).MergeFrom(input);
+                            break;
+                        case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeEnum:
+                @:    _@val.Name = (@Raw(GetCSharpType(val)))input.@GetReader(val);
+                            break;
+                        default:
+                @:    _@val.Name = input.@GetReader(val);
+                            break;
+                    }
+                @:    has@(Model.ToUpperCamel(@val.Name)) = true;
+                @:    break;
+                }
+        @:    }
+        @:}
+        }
+    }
+}

@@ -1,0 +1,7 @@
+public enum @Model.EnumInfo.Name
+{
+    @foreach(var entry in @Model.EnumInfo.Values)
+    {
+    @:@entry.Name = @entry.Number,
+    }
+}

@@ -10,32 +10,150 @@ using System.IO;
 using System.Threading.Tasks;
 
 namespace protogen.CodeGenerators
-{
-    internal class RazorCodeGenerator : CodeGenerator
+{  
+    public class RazorCodeGenerator : CodeGenerator
     {
-        delegate string TypeGenerationDelegate(DescriptorProto proto);
-        delegate string EnumGenerationDelegate(EnumDescriptorProto proto);
-        class ModelBase
+        public delegate string TypeGenerationDelegate(DescriptorProto proto, int ident = 0);
+        public delegate string EnumGenerationDelegate(EnumDescriptorProto proto, int ident = 0);
+        public delegate string MakeTagDelegate(int fieldNumber, FieldDescriptorProto.Type type);
+        public class ModelBase
         {
             public TypeGenerationDelegate GenerateType { get; set; }
             public EnumGenerationDelegate GenerateEnum { get; set; }
+
+            public string ToUpperCamel(string val)
+            {
+                if (!string.IsNullOrEmpty(val))
+                    return val.Substring(0, 1).ToUpper() + val.Substring(1);
+                return val;
+            }
+            public string ToSmallCamel(string val)
+            {
+                if (!string.IsNullOrEmpty(val))
+                    return val.Substring(0, 1).ToLower() + val.Substring(1);
+                return val;
+            }
         }
-        class SingleFileModel : ModelBase
+        public class SingleFileModel : ModelBase
         {
             public FileDescriptorProto File { get; set; }
         }
-        class GlobalFileModel : ModelBase 
+        public class GlobalFileModel : ModelBase
         {
             public FileDescriptorSet Files { get; set; }
         }
-        class TypeModel : ModelBase
+        public class TypeModel : ModelBase
         {
             public DescriptorProto TypeInfo { get; set; }
+            public int CurrentIdent { get; set; }
+            public string MakeTag(int fieldNumber, FieldDescriptorProto.Type type)
+            {
+                WireType wireType = WireType.Varint;
+                switch (type)
+                {
+                    case FieldDescriptorProto.Type.TypeBytes:
+                    case FieldDescriptorProto.Type.TypeString:
+                        wireType = WireType.String;
+                        break;
+                    case FieldDescriptorProto.Type.TypeFloat:
+                    case FieldDescriptorProto.Type.TypeFixed32:
+                    case FieldDescriptorProto.Type.TypeSfixed32:
+                        wireType = WireType.Fixed32;
+                        break;
+                    case FieldDescriptorProto.Type.TypeDouble:
+                    case FieldDescriptorProto.Type.TypeFixed64:
+                    case FieldDescriptorProto.Type.TypeSfixed64:
+                        wireType = WireType.Fixed64;
+                        break;
+                }
+                return ((uint)(fieldNumber << 3) | (uint)wireType).ToString();
+            }
+
+            public bool IsMap(DescriptorProto proto)
+            {
+                if (proto.FullyQualifiedName.StartsWith($"{GetFullQualifiedName(proto.Parent)}.Map") && proto.Name.EndsWith("Entry"))
+                    return true;
+                else
+                    return false;
+            }
+
+            public bool IsFieldMap(FieldDescriptorProto proto)
+            {
+                if (proto.ResolvedType != null && proto.TypeName.StartsWith($"{GetFullQualifiedName(proto.ResolvedType.Parent)}.Map") && proto.TypeName.EndsWith("Entry"))
+                    return true;
+                else
+                    return false;
+            }
+
+            public bool IsRepeated(FieldDescriptorProto proto)
+            {
+                return proto.label == FieldDescriptorProto.Label.LabelRepeated;
+            }
+            public bool IsRequired(FieldDescriptorProto proto)
+            {
+                return proto.label == FieldDescriptorProto.Label.LabelRequired;
+            }
+            public bool IsOptional(FieldDescriptorProto proto)
+            {
+                return proto.label == FieldDescriptorProto.Label.LabelOptional;
+            }
+            public FieldDescriptorProto GetMapFieldType(FieldDescriptorProto proto, bool isKey)
+            {
+                DescriptorProto type = (DescriptorProto)proto.ResolvedType;
+                return isKey ? type.Fields[0] : type.Fields[1];
+            }
+            public string GetMessageTypeName(FieldDescriptorProto proto)
+            {
+                string res = proto.TypeName.Replace(GetFullQualifiedName(proto.ResolvedType.Parent) + ".", "");
+                if (res.StartsWith("."))
+                    res = res.Substring(1);
+                return res;
+            }
+
+            string GetFullQualifiedName(IType proto)
+            {
+                string name = "";
+                IType cur = proto;
+                while(cur !=null)
+                {
+                    if (cur is DescriptorProto pProto)
+                    {
+                        if (!string.IsNullOrEmpty(name))
+                            name = pProto.Name + "." + name;
+                        else
+                            name = pProto.Name;
+                    }
+                    else if (cur is EnumDescriptorProto eProto)
+                    {
+                        if (!string.IsNullOrEmpty(name))
+                            name = eProto.Name + "." + name;
+                        else
+                            name = eProto.Name;
+                    }
+                    else if (cur is FileDescriptorProto fProto)
+                    {
+                        if (!string.IsNullOrEmpty(name))
+                            name = fProto.Package + "." + name;
+                        else
+                            name = fProto.Package;                        
+                    }
+                    else
+                    {
+                        throw new NotImplementedException();
+                    }
+                    cur = cur.Parent;
+                }
+                if (!name.StartsWith("."))
+                    name = "." + name;
+                return name;
+            }
         }
-        class EnumModel : ModelBase
+        public class EnumModel : ModelBase
         {
             public EnumDescriptorProto EnumInfo { get; set; }
+            public int CurrentIdent { get; set; }
         }
+
         RazorLightEngine engine; 
         string templatePath;
         string typeTemplate;
@@ -57,9 +175,14 @@ namespace protogen.CodeGenerators
 
         public override IEnumerable<CodeFile> Generate(FileDescriptorSet set, NameNormalizer normalizer = null, Dictionary<string, string> options = null)
         {
-            
+            string extension = null;
             options?.TryGetValue("template_path", out templatePath);
-            if (string.IsNullOrEmpty(templatePath) || !Directory.Exists(templatePath))
+            options?.TryGetValue("file_extension", out extension);
+            if(extension == null)
+            {
+                extension = "";
+            }
+            if (!string.IsNullOrEmpty(templatePath) && Directory.Exists(templatePath))
             {
                 string filePath = $"{templatePath}/type.tmpl";
                 if(File.Exists(filePath))
@@ -89,7 +212,11 @@ namespace protogen.CodeGenerators
                 hasTemplate= true;
                 foreach(var i in set.Files)
                 {
-                    codes.Add(new CodeFile(i.Name, GenerateSingleFileCode(i)));
+                    if (string.IsNullOrEmpty(i.Options.CsharpNamespace))
+                        i.Options.CsharpNamespace = set.DefaultPackage;
+                    string path = Path.GetDirectoryName(i.Name);
+                    string fn = Path.GetFileNameWithoutExtension(i.Name);
+                    codes.Add(new CodeFile(Path.Combine(path, fn + extension), GenerateSingleFileCode(i)));
                 }
             }
             if (!string.IsNullOrEmpty(globalTemplate))
@@ -110,19 +237,21 @@ namespace protogen.CodeGenerators
             model.GenerateEnum = GenerateEnumCode;
         }
 
-        TypeModel MakeTypeModel(DescriptorProto proto)
+        TypeModel MakeTypeModel(DescriptorProto proto, int ident)
         {
             TypeModel typeModel = new TypeModel();
             InitializeModel(typeModel);
+            typeModel.CurrentIdent = ident;
             typeModel.TypeInfo = proto;
 
             return typeModel;
         }
 
-        EnumModel MakeEnumModel(EnumDescriptorProto proto)
+        EnumModel MakeEnumModel(EnumDescriptorProto proto, int ident)
         {
             EnumModel enumModel = new EnumModel();
             InitializeModel(enumModel);
+            enumModel.CurrentIdent = ident;
             enumModel.EnumInfo = proto;
             return enumModel;
         }
@@ -135,26 +264,44 @@ namespace protogen.CodeGenerators
             return model;
         }
 
-        string GenerateCode(string templateName, string template, ModelBase model)
+        string GenerateCode(string templateName, string template, ModelBase model, int ident)
         {
             var task = engine.CompileRenderStringAsync(templateName, template, model);
             task.Wait();
-            return task.Result;
+            var res = task.Result;
+            if (ident > 0)
+            {
+                StringReader sr = new StringReader(res);
+                StringBuilder final = new StringBuilder();
+                while (sr.Peek() > 0)
+                {
+                    for (int i = 0; i < ident; i++)
+                    {
+                        final.Append("    ");
+                    }
+                    final.AppendLine(sr.ReadLine());
+                }
+                return final.ToString();
+            }
+            else
+                return res;
         }
 
         string GenerateSingleFileCode(FileDescriptorProto proto)
         {
-            return GenerateCode("FileTemplate", fileTemplate!, MakeSingleFileModel(proto));
+            return GenerateCode("FileTemplate", fileTemplate!, MakeSingleFileModel(proto), 0);
         }
 
-        string GenerateTypeCode(DescriptorProto proto)
+        string GenerateTypeCode(DescriptorProto proto, int ident = 0)
         {
-            return GenerateCode("TypeTemplate", typeTemplate!, MakeTypeModel(proto));
+            return GenerateCode("TypeTemplate", typeTemplate!, MakeTypeModel(proto, ident), ident);
         }
 
-        string GenerateEnumCode(EnumDescriptorProto proto)
+        string GenerateEnumCode(EnumDescriptorProto proto, int ident = 0)
         {
-            return GenerateCode("EnumTemplate", enumTemplate!, MakeEnumModel(proto));
+            return GenerateCode("EnumTemplate", enumTemplate!, MakeEnumModel(proto, ident), ident);
         }
+
+        
     }
 }
