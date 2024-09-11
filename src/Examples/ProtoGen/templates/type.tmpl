@@ -1,22 +1,17 @@
 public sealed class @Model.TypeInfo.Name
-{
-    @foreach(var val in @Model.TypeInfo.EnumTypes)
-    {
-@:@Raw(Model.GenerateEnum(val, 1))
-    }
-    @foreach(var val in @Model.TypeInfo.NestedTypes)
-    {
-        if(@Model.IsMap(val))
-            continue;
-@:@Raw(Model.GenerateType(val, 1))
-    }
+{    
     @{
+        //Helper functions for code generation
+        Model.GetCodeNamespace = new protogen.CodeGenerators.RazorCodeGenerator.GetCodeNamespaceDelegate((fdp)=>
+        {
+            var name = fdp.Options.CsharpNamespace;
+            if (string.IsNullOrEmpty(name))
+                name = Model.GetFileDescriptorSet(fdp).DefaultPackage;
+            return name;
+        });
         string GetMessageTypeName(Google.Protobuf.Reflection.FieldDescriptorProto proto)
         {
-            if(@Model.IsFieldMap(proto))
-                return $"Dictionary<{GetCSharpType(@Model.GetMapFieldType(proto, true))},{GetCSharpType(@Model.GetMapFieldType(proto, true))}>";
-            else
-                return @Model.GetMessageTypeName(proto);
+            return @Model.GetMessageTypeName(proto);
         }
 
         string GetCSharpType(Google.Protobuf.Reflection.FieldDescriptorProto proto, bool ignoreRepeated = false)
@@ -61,35 +56,37 @@ public sealed class @Model.TypeInfo.Name
             switch(proto.type)
             {
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeDouble:
-                    return "ReadDouble()";
+                    return "ReadDouble";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFloat:
-                    return "ReadFloat()";
+                    return "ReadFloat";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFixed64:
-                    return "ReadFixed64()";
+                    return "ReadFixed64";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSfixed64:
-                    return "ReadSFixed64()";
+                    return "ReadSFixed64";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSint64:
+                    return "ReadSInt64";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeInt64:
-                    return "ReadInt64()";
+                    return "ReadInt64";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeUint64:
-                    return "ReadUInt64()";
+                    return "ReadUInt64";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFixed32:
-                    return "ReadFixed32()";
+                    return "ReadFixed32";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSfixed32:
-                    return "ReadSFixed32()";
+                    return "ReadSFixed32";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSint32:
+                    return "ReadSInt32";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeInt32:
-                    return "ReadInt32()";
+                    return "ReadInt32";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBool:
-                    return "ReadBool()";
+                    return "ReadBool";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeEnum:
-                    return "ReadEnum()";
+                    return "ReadEnum";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBytes:
-                    return "ReadBytes()";
+                    return "ReadBytes";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeString:
-                    return "ReadString()";
+                    return "ReadString";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeUint32:
-                    return "ReadUInt32()";
+                    return "ReadUInt32";
             }
             return "";
         }
@@ -107,15 +104,17 @@ public sealed class @Model.TypeInfo.Name
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSfixed64:
                     return "WriteSFixed64";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSint64:
+                    return "WriteSInt64";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeInt64:
                     return "WriteInt64";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeUint64:
                     return "WriteUInt64";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFixed32:
-                    return "WriteReadFixed32";
+                    return "WriteFixed32";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSfixed32:
                     return "WriteSFixed32";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSint32:
+                    return "WriteSInt32";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeInt32:
                     return "WriteInt32";
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBool:
@@ -131,6 +130,54 @@ public sealed class @Model.TypeInfo.Name
             }
             return "";
         }
+
+        string GetSizeComputer(Google.Protobuf.Reflection.FieldDescriptorProto proto)
+        {
+            switch(proto.type)
+            {
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeDouble:
+                    return "ComputeDoubleSize";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFloat:
+                    return "ComputeFloatSize";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFixed64:
+                    return "ComputeFixed64Size";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSfixed64:
+                    return "ComputeSFixed64Size";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSint64:
+                    return "ComputeSInt64Size";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeInt64:
+                    return "ComputeInt64Size";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeUint64:
+                    return "ComputeUInt64Size";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeFixed32:
+                    return "ComputeFixed32Size";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSfixed32:
+                    return "ComputeSFixed32Size";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeSint32:
+                    return "ComputeSInt32Size";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeInt32:
+                    return "ComputeInt32Size";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBool:
+                    return "ComputeBoolSize";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeEnum:
+                    return "ComputeEnumSize";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBytes:
+                    return "ComputeBytesSize";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeString:
+                    return "ComputeStringSize";
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeUint32:
+                    return "ComputeUInt32Size";
+            }
+            return "";
+        }
+    }
+    @foreach(var val in @Model.TypeInfo.EnumTypes)
+    {
+@:@Raw(Model.GenerateEnum(val, 1))
+    }
+    @foreach(var val in @Model.TypeInfo.NestedTypes)
+    {
+@:@Raw(Model.GenerateType(val, 1))
     }
     @foreach(var val in @Model.TypeInfo.Fields)
     {
@@ -166,7 +213,72 @@ public sealed class @Model.TypeInfo.Name
         if (size != -1) return size;
       
         size = 0;
-
+        @foreach(var val in @Model.TypeInfo.Fields)
+        {
+        @:if(has@(Model.ToUpperCamel(@val.Name)))
+        @:{
+            switch(val.type)
+            {
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeMessage:
+                    if(Model.IsRepeated(val))
+                    {
+        @:    foreach(var i in _@val.Name)
+        @:    {
+        @:        size += CodedOutputStream.ComputeMessageSize(@val.Number, i.SerializedSize);
+        @:    }
+                    }
+                    else
+                    {
+        @:    size += CodedOutputStream.ComputeMessageSize(@val.Number, _@(val.Name).SerializedSize);
+                    }
+                    break;
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeEnum:
+                    if(Model.IsRepeated(val))
+                    {
+        @:    int dataSize = CodedOutputStream.ComputeTagSize(@val.Number);
+        @:    foreach(var i in _@val.Name)
+        @:    {
+        @:        dataSize += CodedOutputStream.@(GetSizeComputer(val))((int)i);
+        @:    }
+        @:    size += dataSize + CodedOutputStream.ComputeLengthSize(dataSize);
+                    }
+                    else
+                    {
+        @:    size += CodedOutputStream.@(GetSizeComputer(val))(@val.Number, (int)_@val.Name);
+                    }
+                    break;
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeString:
+                case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeBytes:
+                    if(Model.IsRepeated(val))
+                    {
+        @:    foreach(var i in _@val.Name)
+        @:    {
+        @:        size +=  CodedOutputStream.@(GetSizeComputer(val))(@val.Number, i);
+        @:    }
+                    }
+                    else
+                    {
+        @:    size += CodedOutputStream.@(GetSizeComputer(val))(@val.Number, _@val.Name);
+                    }
+                    break;
+                default:
+                    if(Model.IsRepeated(val))
+                    {
+        @:    int dataSize = CodedOutputStream.ComputeTagSize(@val.Number);
+        @:    foreach(var i in _@val.Name)
+        @:    {
+        @:        dataSize += CodedOutputStream.@(GetSizeComputer(val))(i);
+        @:    }
+        @:    size += dataSize + CodedOutputStream.ComputeLengthSize(dataSize);
+                    }
+                    else
+                    {
+        @:    size += CodedOutputStream.@(GetSizeComputer(val))(@val.Number, _@val.Name);
+                    }
+                    break;
+            }
+        @:}
+        }
         memoizedSerializedSize = size;
         return size;
     }
@@ -177,14 +289,46 @@ public sealed class @Model.TypeInfo.Name
         {
         @:if(has@(Model.ToUpperCamel(@val.Name)))
         @:{
-        @:    output.WriteTag(@(Model.MakeTag(val.Number, val.type)));
             switch(val.type)
             {
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeMessage:
+                    if(Model.IsRepeated(val))
+                    {
+        @:    foreach(var msg in _@val.Name)
+        @:    {
+        @:        output.WriteMessageHeader(@val.Number, msg.SerializedSize);
+        @:        msg.WriteTo(output);
+        @:    }
+                    }
+                    else
+                    {
+        @:    output.WriteMessageHeader(@val.Number, _@(val.Name).SerializedSize);
+        @:    _@(val.Name).WriteTo(output);
+                    }
+                    break;
                 case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeEnum:
+                    if(Model.IsRepeated(val))
+                    {
+        @:    List<int> tmp = new List<int>();
+        @:    foreach(var i in _@val.Name)
+        @:        tmp.Add((int)i);
+        @:    output.@(GetWriter(val))Array(@val.Number, tmp);
+        @:
+                    }
+                    else
+                    {
+        @:    output.@(GetWriter(val))(@val.Number, (int)_@val.Name);
+                    }
                     break;
                 default:
-        @:    output.@(GetWriter(val))(_@val.Name);
+                    if(Model.IsRepeated(val))
+                    {
+        @:    output.@(GetWriter(val))Array(@val.Number, _@val.Name);
+                    }
+                    else
+                    {
+        @:    output.@(GetWriter(val))(@val.Number, _@val.Name);
+                    }
                     break;
             }
         @:}
@@ -202,21 +346,61 @@ public sealed class @Model.TypeInfo.Name
         @:    {
                 @foreach(var val in @Model.TypeInfo.Fields)
                 {
-                @:case @(Model.MakeTag(val.Number, val.type)):
+                @:case @(Model.MakeTag(val)):
+                @:{
                     switch(val.type)
                     {                        
                         case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeMessage:
+                            if(Model.IsRepeated(val))
+                            {
+                @:    if(_@val.Name == null)
+                @:        _@val.Name = new @(Raw(GetCSharpType(val)))();
+                @:    @(Raw(GetCSharpType(val, true))) child = new @(Raw(GetCSharpType(val, true)))();
+                @:    int size = input.ReadLength();
+                @:    size = input.PushLimit(size);
+                @:    child.MergeFrom(input);
+                @:    input.PopLimit(size);
+                @:    _@(val.Name).Add(child);
+                            }
+                            else
+                            {
                 @:    _@val.Name = new @(Raw(GetCSharpType(val)))();
+                @:    int size = input.ReadLength();
+                @:    size = input.PushLimit(size);
                 @:    _@(val.Name).MergeFrom(input);
+                @:    input.PopLimit(size);
+                            }
                             break;
                         case Google.Protobuf.Reflection.FieldDescriptorProto.Type.TypeEnum:
-                @:    _@val.Name = (@Raw(GetCSharpType(val)))input.@GetReader(val);
+                            if(Model.IsRepeated(val))
+                            {
+                @:    if(_@val.Name == null)
+                @:        _@val.Name = new @(Raw(GetCSharpType(val)))();
+                @:    List<int> tmp = new List<int>();
+                @:    input.@(GetReader(val))Array(tag, tmp);                
+                @:    foreach(var val in tmp)
+                @:        _@(val.Name).Add((@(Raw(GetCSharpType(val, true))))val);
+                            }
+                            else
+                            {
+                @:    _@val.Name = (@Raw(GetCSharpType(val)))input.@(GetReader(val))();
+                            }
                             break;
                         default:
-                @:    _@val.Name = input.@GetReader(val);
+                            if(Model.IsRepeated(val))
+                            {
+                @:    if(_@val.Name == null)
+                @:        _@val.Name = new @(Raw(GetCSharpType(val)))();
+                @:    input.@(GetReader(val))Array(tag, _@val.Name);                
+                            }
+                            else
+                            {
+                @:    _@val.Name = input.@(GetReader(val))();
+                            }
                             break;
                     }
                 @:    has@(Model.ToUpperCamel(@val.Name)) = true;
+                @:}
                 @:    break;
                 }
         @:    }

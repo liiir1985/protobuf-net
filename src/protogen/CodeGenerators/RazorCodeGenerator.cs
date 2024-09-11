@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
-using System.Threading.Tasks;
 
 namespace protogen.CodeGenerators
 {  
@@ -15,7 +14,7 @@ namespace protogen.CodeGenerators
     {
         public delegate string TypeGenerationDelegate(DescriptorProto proto, int ident = 0);
         public delegate string EnumGenerationDelegate(EnumDescriptorProto proto, int ident = 0);
-        public delegate string MakeTagDelegate(int fieldNumber, FieldDescriptorProto.Type type);
+        public delegate string GetCodeNamespaceDelegate(FileDescriptorProto proto);
         public class ModelBase
         {
             public TypeGenerationDelegate GenerateType { get; set; }
@@ -45,12 +44,18 @@ namespace protogen.CodeGenerators
         public class TypeModel : ModelBase
         {
             public DescriptorProto TypeInfo { get; set; }
+
+            public FileDescriptorProto FileInfo { get; set; }
+
+            public GetCodeNamespaceDelegate GetCodeNamespace { get; set; }
             public int CurrentIdent { get; set; }
-            public string MakeTag(int fieldNumber, FieldDescriptorProto.Type type)
+
+            WireType GetWireTypeByType(FieldDescriptorProto.Type type)
             {
                 WireType wireType = WireType.Varint;
                 switch (type)
                 {
+                    case FieldDescriptorProto.Type.TypeMessage:                        
                     case FieldDescriptorProto.Type.TypeBytes:
                     case FieldDescriptorProto.Type.TypeString:
                         wireType = WireType.String;
@@ -65,6 +70,32 @@ namespace protogen.CodeGenerators
                     case FieldDescriptorProto.Type.TypeSfixed64:
                         wireType = WireType.Fixed64;
                         break;
+                }
+                return wireType;
+            }
+            public string MakeTag(FieldDescriptorProto proto, bool pack = true)
+            {
+                int fieldNumber = proto.Number;
+                WireType wireType;
+                if (proto.label == FieldDescriptorProto.Label.LabelRepeated)
+                {
+                    wireType = GetWireTypeByType(proto.type);
+                    switch (wireType)
+                    {
+                        case WireType.String:
+                            break;
+                        default:
+                            if (pack)
+                            {
+                                //packed repeated field
+                                wireType = WireType.String;
+                            }
+                            break;
+                    }
+                }
+                else
+                {
+                    wireType = GetWireTypeByType(proto.type);
                 }
                 return ((uint)(fieldNumber << 3) | (uint)wireType).ToString();
             }
@@ -104,10 +135,61 @@ namespace protogen.CodeGenerators
             }
             public string GetMessageTypeName(FieldDescriptorProto proto)
             {
-                string res = proto.TypeName.Replace(GetFullQualifiedName(proto.ResolvedType.Parent) + ".", "");
+                (string package, string name) = GetPackageNameAndNamespace(proto.ResolvedType);
+                string res;
+                if (package == ".")
+                {
+                    if (proto.TypeName.StartsWith("."))
+                        res = proto.TypeName.Substring(1);
+                    else
+                        res = proto.TypeName;
+                }
+                else
+                    res = proto.TypeName.Replace(package, name);
                 if (res.StartsWith("."))
                     res = res.Substring(1);
                 return res;
+            }
+
+            public FileDescriptorSet GetFileDescriptorSet(FileDescriptorProto proto)
+            {
+                return proto.Parent;
+            }
+
+            (string package, string name) GetPackageNameAndNamespace(IType proto)
+            {
+                string package = "";
+                string name = "";
+                IType cur = proto;
+                IType topType = null;
+                while (cur != null)
+                {
+                    if (cur.Parent is FileDescriptorProto)
+                    {
+                        topType = cur;
+                        break;
+                    }
+                    cur = cur.Parent;
+                }
+                if (topType != null)
+                {
+                    FileDescriptorProto fdp = (FileDescriptorProto)topType.Parent;
+                    package = fdp.Package;
+                    if (FileInfo != fdp)
+                    {
+                        if (GetCodeNamespace != null)
+                            name = GetCodeNamespace(fdp);
+                        else
+                        {
+                            name = fdp.Options.CsharpNamespace;
+                            if (string.IsNullOrEmpty(name))
+                                name = fdp.Parent.DefaultPackage;
+                        }
+                    }
+                }
+                if (!package.StartsWith("."))
+                    package = "." + package;
+                return (package, name);
             }
 
             string GetFullQualifiedName(IType proto)
@@ -237,12 +319,25 @@ namespace protogen.CodeGenerators
             model.GenerateEnum = GenerateEnumCode;
         }
 
+        FileDescriptorProto FindFileProto(DescriptorProto proto)
+        {
+            IType cur = proto;
+            do
+            {
+                cur = cur.Parent;
+                if (cur is FileDescriptorProto fdp)
+                    return fdp;
+            } while (cur != null);
+            return null;
+        }
+
         TypeModel MakeTypeModel(DescriptorProto proto, int ident)
         {
             TypeModel typeModel = new TypeModel();
             InitializeModel(typeModel);
             typeModel.CurrentIdent = ident;
             typeModel.TypeInfo = proto;
+            typeModel.FileInfo = FindFileProto(proto);
 
             return typeModel;
         }
