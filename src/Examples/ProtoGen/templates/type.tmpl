@@ -170,6 +170,21 @@ public sealed class @Model.TypeInfo.Name
             }
             return "";
         }
+        string GetOneOfCaseEnumName(Google.Protobuf.Reflection.FieldDescriptorProto val)
+        {
+            var oneOf = Model.OneOfInfo[val.OneofIndex];
+            return $"{Model.ToUpperCamel(oneOf.Name)}OneOfCases";
+        }
+        string GetOneOfCaseName(Google.Protobuf.Reflection.FieldDescriptorProto val)
+        {
+            var oneOf = Model.OneOfInfo[val.OneofIndex];
+            return $"{Model.ToUpperCamel(oneOf.Name)}OneOfCases.{Model.ToUpperCamel(val.Name)}";
+        }
+        string GetOneOfCaseFieldName(Google.Protobuf.Reflection.FieldDescriptorProto val)
+        {
+            var oneOf = Model.OneOfInfo[val.OneofIndex];
+            return $"_{Model.ToLowerCamel(oneOf.Name)}Case";
+        }
     }
     @foreach(var val in @Model.TypeInfo.EnumTypes)
     {
@@ -179,18 +194,48 @@ public sealed class @Model.TypeInfo.Name
     {
 @:@Raw(Model.GenerateType(val, 1))
     }
+    @for(int i = 0; i < Model.OneOfInfo.Count; i++)
+    {
+        var oneOf = Model.OneOfInfo[i];
+    @:public enum @(Model.ToUpperCamel(oneOf.Name))OneOfCases
+    @:{
+    @:    None = 0,
+        for(int idx = 0; idx < oneOf.Fields.Count; idx++)
+        {
+    @:    @(Model.ToUpperCamel(oneOf.Fields[idx].Name)) = @(idx + 1),
+        }
+    @:}
+    @:@(Model.ToUpperCamel(oneOf.Name))OneOfCases _@(Model.ToLowerCamel(oneOf.Name))Case;
+    @:public @(Model.ToUpperCamel(oneOf.Name))OneOfCases @(Model.ToUpperCamel(oneOf.Name))Case => _@(Model.ToLowerCamel(oneOf.Name))Case;
+    }
     @foreach(var val in @Model.TypeInfo.Fields)
     {
     @:
+    @if(val.ShouldSerializeOneofIndex())
+    {
+    @:public bool Has@(Model.ToUpperCamel(@val.Name)) => @GetOneOfCaseFieldName(val) == @GetOneOfCaseName(val);
+    }
+    else
+    {
     @:bool has@(Model.ToUpperCamel(@val.Name));
     @:public bool Has@(Model.ToUpperCamel(@val.Name)) => has@(Model.ToUpperCamel(@val.Name));
+    }
     @:@Raw(GetCSharpType(val)) _@val.Name;
     @:public @Raw(GetCSharpType(val)) @(Model.ToUpperCamel(@val.Name))
     @:{
     @:    get => _@val.Name;
     @:    set
     @:    {
+    @if(val.ShouldSerializeOneofIndex())
+    {
+    @:        if(@GetOneOfCaseFieldName(val) != @(GetOneOfCaseEnumName(val)).None)
+    @:            throw new System.NotSupportedException("Only one field can be assigned inside OneOf:@(Model.OneOfInfo[val.OneofIndex].Name)");
+    @:        @GetOneOfCaseFieldName(val) = @GetOneOfCaseName(val);
+    }
+    else
+    {
     @:        has@(Model.ToUpperCamel(@val.Name)) = true;
+    }
     @:        _@val.Name = value;
     @:    }
     @:}
@@ -215,7 +260,14 @@ public sealed class @Model.TypeInfo.Name
         size = 0;
         @foreach(var val in @Model.TypeInfo.Fields)
         {
+        @if(val.ShouldSerializeOneofIndex())
+        {
+        @:if(@GetOneOfCaseFieldName(val) == @GetOneOfCaseName(val))
+        }
+        else
+        {
         @:if(has@(Model.ToUpperCamel(@val.Name)))
+        }
         @:{
             switch(val.type)
             {
@@ -287,7 +339,14 @@ public sealed class @Model.TypeInfo.Name
     {
         @foreach(var val in @Model.TypeInfo.Fields)
         {
+        @if(val.ShouldSerializeOneofIndex())
+        {
+        @:if(@GetOneOfCaseFieldName(val) == @GetOneOfCaseName(val))
+        }
+        else
+        {
         @:if(has@(Model.ToUpperCamel(@val.Name)))
+        }
         @:{
             switch(val.type)
             {
@@ -399,7 +458,14 @@ public sealed class @Model.TypeInfo.Name
                             }
                             break;
                     }
+                @if(val.ShouldSerializeOneofIndex())
+                {
+                @:    @GetOneOfCaseFieldName(val) = @GetOneOfCaseName(val);
+                }
+                else
+                {
                 @:    has@(Model.ToUpperCamel(@val.Name)) = true;
+                }
                 @:}
                 @:    break;
                 }

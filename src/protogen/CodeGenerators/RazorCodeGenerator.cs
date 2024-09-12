@@ -26,7 +26,7 @@ namespace protogen.CodeGenerators
                     return val.Substring(0, 1).ToUpper() + val.Substring(1);
                 return val;
             }
-            public string ToSmallCamel(string val)
+            public string ToLowerCamel(string val)
             {
                 if (!string.IsNullOrEmpty(val))
                     return val.Substring(0, 1).ToLower() + val.Substring(1);
@@ -41,6 +41,11 @@ namespace protogen.CodeGenerators
         {
             public FileDescriptorSet Files { get; set; }
         }
+        public class OneOfModel
+        {
+            public string Name { get; set; }
+            public List<FieldDescriptorProto> Fields { get; set; }
+        }
         public class TypeModel : ModelBase
         {
             public DescriptorProto TypeInfo { get; set; }
@@ -48,6 +53,8 @@ namespace protogen.CodeGenerators
             public FileDescriptorProto FileInfo { get; set; }
 
             public GetCodeNamespaceDelegate GetCodeNamespace { get; set; }
+
+            public List<OneOfModel> OneOfInfo { get; set; }
             public int CurrentIdent { get; set; }
 
             WireType GetWireTypeByType(FieldDescriptorProto.Type type)
@@ -338,7 +345,27 @@ namespace protogen.CodeGenerators
             typeModel.CurrentIdent = ident;
             typeModel.TypeInfo = proto;
             typeModel.FileInfo = FindFileProto(proto);
-
+            typeModel.OneOfInfo = new List<OneOfModel>();
+            bool hasOneOf = false;
+            foreach(var i in proto.OneofDecls)
+            {
+                hasOneOf = true;
+                OneOfModel model = new OneOfModel();
+                model.Name = i.Name;
+                model.Fields = new List<FieldDescriptorProto>();
+                typeModel.OneOfInfo.Add(model);
+            }
+            if (hasOneOf)
+            {
+                foreach(var i in proto.Fields)
+                {
+                    if (i.ShouldSerializeOneofIndex())
+                    {
+                        var model = typeModel.OneOfInfo[i.OneofIndex];
+                        model.Fields.Add(i);
+                    }
+                }
+            }
             return typeModel;
         }
 
