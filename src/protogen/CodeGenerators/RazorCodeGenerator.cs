@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace protogen.CodeGenerators
 {  
@@ -20,16 +21,28 @@ namespace protogen.CodeGenerators
             public TypeGenerationDelegate GenerateType { get; set; }
             public EnumGenerationDelegate GenerateEnum { get; set; }
 
-            public string ToUpperCamel(string val)
+            public string ToUpperCamel(string identifier)
             {
-                if (!string.IsNullOrEmpty(val))
-                    return val.Substring(0, 1).ToUpper() + val.Substring(1);
-                return val;
+                if (string.IsNullOrEmpty(identifier)) return identifier;
+                // if all upper-case, make proper-case
+                if (Regex.IsMatch(identifier, "^[_A-Z0-9]*$"))
+                {
+                    return Regex.Replace(identifier, "(^|_)([A-Z0-9])([A-Z0-9]*)",
+                        match => match.Groups[2].Value.ToUpperInvariant() + match.Groups[3].Value.ToLowerInvariant());
+                }
+                // if all lower-case, make proper case
+                if (Regex.IsMatch(identifier, "^[_a-z0-9]*$"))
+                {
+                    return Regex.Replace(identifier, "(^|_)([a-z0-9])([a-z0-9]*)",
+                        match => match.Groups[2].Value.ToUpperInvariant() + match.Groups[3].Value.ToLowerInvariant());
+                }
+                // just remove underscores - leave their chosen casing alone
+                return identifier.Replace("_", "");
             }
             public string ToLowerCamel(string val)
             {
                 if (!string.IsNullOrEmpty(val))
-                    return val.Substring(0, 1).ToLower() + val.Substring(1);
+                    return ToUpperCamel(val).Substring(0, 1).ToLower() + val.Substring(1);
                 return val;
             }
         }
@@ -365,6 +378,10 @@ namespace protogen.CodeGenerators
                         model.Fields.Add(i);
                     }
                 }
+            }
+            if (proto.Options != null)
+            {
+                
             }
             return typeModel;
         }
