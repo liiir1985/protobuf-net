@@ -208,6 +208,10 @@ public sealed class @Model.TypeInfo.Name
     @:@(Model.ToUpperCamel(oneOf.Name))OneOfCases _@(Model.ToLowerCamel(oneOf.Name))Case;
     @:public @(Model.ToUpperCamel(oneOf.Name))OneOfCases @(Model.ToUpperCamel(oneOf.Name))Case => _@(Model.ToLowerCamel(oneOf.Name))Case;
     }
+    @if(Model.TryGetOptionValue(54321, out int msgId))
+    {
+    @:public int MessageId => @msgId;
+    }
     @foreach(var val in @Model.TypeInfo.Fields)
     {
     @:

@@ -70,6 +70,16 @@ namespace protogen.CodeGenerators
             public List<OneOfModel> OneOfInfo { get; set; }
             public int CurrentIdent { get; set; }
 
+            public bool TryGetOptionValue<T>(int fieldNumber, out T value)
+            {
+                if(TypeInfo.Options == null)
+                {
+                    value = default;
+                    return false;
+                }
+                return Extensible.TryGetValue(TypeInfo.Options, fieldNumber, out value);
+            }
+
             WireType GetWireTypeByType(FieldDescriptorProto.Type type)
             {
                 WireType wireType = WireType.Varint;
@@ -278,9 +288,11 @@ namespace protogen.CodeGenerators
         public override IEnumerable<CodeFile> Generate(FileDescriptorSet set, NameNormalizer normalizer = null, Dictionary<string, string> options = null)
         {
             string extension = null;
+            string ignorePackage = null;
             options?.TryGetValue("template_path", out templatePath);
             options?.TryGetValue("file_extension", out extension);
-            if(extension == null)
+            options?.TryGetValue("ignore_package", out ignorePackage);
+            if (extension == null)
             {
                 extension = "";
             }
@@ -314,6 +326,10 @@ namespace protogen.CodeGenerators
                 hasTemplate= true;
                 foreach(var i in set.Files)
                 {
+                    if (i.EnumTypes.Count == 0 && i.MessageTypes.Count == 0)
+                        continue;
+                    if (!string.IsNullOrEmpty(ignorePackage) && i.Package.StartsWith(ignorePackage))
+                        continue;
                     if (string.IsNullOrEmpty(i.Options.CsharpNamespace))
                         i.Options.CsharpNamespace = set.DefaultPackage;
                     string path = Path.GetDirectoryName(i.Name);
@@ -378,10 +394,6 @@ namespace protogen.CodeGenerators
                         model.Fields.Add(i);
                     }
                 }
-            }
-            if (proto.Options != null)
-            {
-                
             }
             return typeModel;
         }
