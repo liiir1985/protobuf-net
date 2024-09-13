@@ -141,6 +141,24 @@ namespace protogen.CodeGenerators
                 DescriptorProto type = (DescriptorProto)proto.ResolvedType;
                 return isKey ? type.Fields[0] : type.Fields[1];
             }
+
+            public string GetMessageTypeName(DescriptorProto proto)
+            {
+                (string package, string name) = GetPackageNameAndNamespace(proto, null);
+                string res;
+                if (package == ".")
+                {
+                    if (proto.FullyQualifiedName.StartsWith("."))
+                        res = name + "." + proto.FullyQualifiedName.Substring(1);
+                    else
+                        res = name + "." + proto.FullyQualifiedName;
+                }
+                else
+                    res = proto.FullyQualifiedName.Replace(package, name);
+                if (res.StartsWith("."))
+                    res = res.Substring(1);
+                return res;
+            }
             public string GetMessageTypeName(FieldDescriptorProto proto, FileDescriptorProto parentFile)
             {
                 (string package, string name) = GetPackageNameAndNamespace(proto.ResolvedType, parentFile);

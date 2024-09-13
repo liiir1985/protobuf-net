@@ -1,4 +1,4 @@
-public sealed class @Model.TypeInfo.Name
+public sealed class @Model.TypeInfo.Name : MessageBase
 {    
     @{
         //Helper functions for code generation
@@ -210,7 +210,7 @@ public sealed class @Model.TypeInfo.Name
     }
     @if(Model.TryGetOptionValue(54321, out int msgId))
     {
-    @:public int MessageId => @msgId;
+    @:public override int MessageId => @msgId;
     }
     @foreach(var val in @Model.TypeInfo.Fields)
     {
@@ -245,18 +245,7 @@ public sealed class @Model.TypeInfo.Name
     @:}
     }
 
-    private int memoizedSerializedSize = -1;
-    public int SerializedSize 
-    {
-        get 
-        {
-            int size = memoizedSerializedSize;
-            if (size != -1) return size;
-            return CalcSerializedSize();
-        }
-    }
-
-    private int CalcSerializedSize() 
+    protected override int CalcSerializedSize() 
     {
         int size = memoizedSerializedSize;
         if (size != -1) return size;
@@ -339,7 +328,7 @@ public sealed class @Model.TypeInfo.Name
         return size;
     }
 
-    public void WriteTo(CodedOutputStream output)
+    public override void WriteTo(CodedOutputStream output)
     {
         @foreach(var val in @Model.TypeInfo.Fields)
         {
@@ -398,7 +387,7 @@ public sealed class @Model.TypeInfo.Name
         }
     }
 
-    public void MergeFrom(CodedInputStream input) 
+    public override void MergeFrom(CodedInputStream input) 
     {
         @if(@Model.TypeInfo.Fields.Count > 0)
         {
