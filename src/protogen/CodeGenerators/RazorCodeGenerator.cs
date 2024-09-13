@@ -21,6 +21,8 @@ namespace protogen.CodeGenerators
             public TypeGenerationDelegate GenerateType { get; set; }
             public EnumGenerationDelegate GenerateEnum { get; set; }
 
+            public GetCodeNamespaceDelegate GetCodeNamespace { get; set; }
+
             public string ToUpperCamel(string identifier)
             {
                 if (string.IsNullOrEmpty(identifier)) return identifier;
@@ -45,39 +47,15 @@ namespace protogen.CodeGenerators
                     return ToUpperCamel(val).Substring(0, 1).ToLower() + val.Substring(1);
                 return val;
             }
-        }
-        public class SingleFileModel : ModelBase
-        {
-            public FileDescriptorProto File { get; set; }
-        }
-        public class GlobalFileModel : ModelBase
-        {
-            public FileDescriptorSet Files { get; set; }
-        }
-        public class OneOfModel
-        {
-            public string Name { get; set; }
-            public List<FieldDescriptorProto> Fields { get; set; }
-        }
-        public class TypeModel : ModelBase
-        {
-            public DescriptorProto TypeInfo { get; set; }
 
-            public FileDescriptorProto FileInfo { get; set; }
-
-            public GetCodeNamespaceDelegate GetCodeNamespace { get; set; }
-
-            public List<OneOfModel> OneOfInfo { get; set; }
-            public int CurrentIdent { get; set; }
-
-            public bool TryGetOptionValue<T>(int fieldNumber, out T value)
+            public bool TryGetOptionValue<T>(DescriptorProto proto, int fieldNumber, out T value)
             {
-                if(TypeInfo.Options == null)
+                if (proto.Options == null)
                 {
                     value = default;
                     return false;
                 }
-                return Extensible.TryGetValue(TypeInfo.Options, fieldNumber, out value);
+                return Extensible.TryGetValue(proto.Options, fieldNumber, out value);
             }
 
             WireType GetWireTypeByType(FieldDescriptorProto.Type type)
@@ -85,7 +63,7 @@ namespace protogen.CodeGenerators
                 WireType wireType = WireType.Varint;
                 switch (type)
                 {
-                    case FieldDescriptorProto.Type.TypeMessage:                        
+                    case FieldDescriptorProto.Type.TypeMessage:
                     case FieldDescriptorProto.Type.TypeBytes:
                     case FieldDescriptorProto.Type.TypeString:
                         wireType = WireType.String;
@@ -163,9 +141,9 @@ namespace protogen.CodeGenerators
                 DescriptorProto type = (DescriptorProto)proto.ResolvedType;
                 return isKey ? type.Fields[0] : type.Fields[1];
             }
-            public string GetMessageTypeName(FieldDescriptorProto proto)
+            public string GetMessageTypeName(FieldDescriptorProto proto, FileDescriptorProto parentFile)
             {
-                (string package, string name) = GetPackageNameAndNamespace(proto.ResolvedType);
+                (string package, string name) = GetPackageNameAndNamespace(proto.ResolvedType, parentFile);
                 string res;
                 if (package == ".")
                 {
@@ -186,7 +164,7 @@ namespace protogen.CodeGenerators
                 return proto.Parent;
             }
 
-            (string package, string name) GetPackageNameAndNamespace(IType proto)
+            (string package, string name) GetPackageNameAndNamespace(IType proto, FileDescriptorProto parentFile)
             {
                 string package = "";
                 string name = "";
@@ -205,7 +183,7 @@ namespace protogen.CodeGenerators
                 {
                     FileDescriptorProto fdp = (FileDescriptorProto)topType.Parent;
                     package = fdp.Package;
-                    if (FileInfo != fdp)
+                    if (parentFile != fdp)
                     {
                         if (GetCodeNamespace != null)
                             name = GetCodeNamespace(fdp);
@@ -226,7 +204,7 @@ namespace protogen.CodeGenerators
             {
                 string name = "";
                 IType cur = proto;
-                while(cur !=null)
+                while (cur != null)
                 {
                     if (cur is DescriptorProto pProto)
                     {
@@ -247,7 +225,7 @@ namespace protogen.CodeGenerators
                         if (!string.IsNullOrEmpty(name))
                             name = fProto.Package + "." + name;
                         else
-                            name = fProto.Package;                        
+                            name = fProto.Package;
                     }
                     else
                     {
@@ -258,6 +236,38 @@ namespace protogen.CodeGenerators
                 if (!name.StartsWith("."))
                     name = "." + name;
                 return name;
+            }
+        }
+        public class SingleFileModel : ModelBase
+        {
+            public FileDescriptorProto File { get; set; }
+        }
+        public class GlobalFileModel : ModelBase
+        {
+            public FileDescriptorSet Files { get; set; }
+        }
+        public class OneOfModel
+        {
+            public string Name { get; set; }
+            public List<FieldDescriptorProto> Fields { get; set; }
+        }
+        public class TypeModel : ModelBase
+        {
+            public DescriptorProto TypeInfo { get; set; }
+
+            public FileDescriptorProto FileInfo { get; set; }
+
+            public List<OneOfModel> OneOfInfo { get; set; }
+            public int CurrentIdent { get; set; }
+
+            public string GetMessageTypeName(FieldDescriptorProto proto)
+            {
+                return GetMessageTypeName(proto, FileInfo);
+            }
+
+            public bool TryGetOptionValue<T>(int fieldNumber, out T value)
+            {
+                return TryGetOptionValue(TypeInfo, fieldNumber, out value);
             }
         }
         public class EnumModel : ModelBase
@@ -271,7 +281,6 @@ namespace protogen.CodeGenerators
         string typeTemplate;
         string enumTemplate;
         string fileTemplate;
-        string globalTemplate;
         public RazorCodeGenerator()
         {
             engine = new RazorLightEngineBuilder()
@@ -289,9 +298,12 @@ namespace protogen.CodeGenerators
         {
             string extension = null;
             string ignorePackage = null;
+            string globalConfigs = null;
+            List<(string FileName, string TemplateName, string TemplateContent)> globalTemplates = new List<(string, string, string)>();
             options?.TryGetValue("template_path", out templatePath);
             options?.TryGetValue("file_extension", out extension);
             options?.TryGetValue("ignore_package", out ignorePackage);
+            options?.TryGetValue("global_codegen", out globalConfigs);
             if (extension == null)
             {
                 extension = "";
@@ -313,10 +325,22 @@ namespace protogen.CodeGenerators
                 {
                     fileTemplate = File.ReadAllText(filePath);
                 }
-                filePath = $"{templatePath}/global.tmpl";
-                if (File.Exists(filePath))
+            }
+            if (!string.IsNullOrEmpty(globalConfigs))
+            {
+                string[] files = globalConfigs.Split(',');
+                foreach (var f in files)
                 {
-                    globalTemplate = File.ReadAllText(filePath);
+                    string[] kv = f.Split(':');
+                    if (kv.Length > 1)
+                    {
+                        string tf = $"{templatePath}/{kv[1]}";
+                        if (File.Exists(tf))
+                        {
+                            string content = File.ReadAllText(tf);
+                            globalTemplates.Add((kv[0], Path.GetFileNameWithoutExtension(kv[1]), content));
+                        }
+                    }
                 }
             }
             List<CodeFile> codes = new List<CodeFile>();
@@ -337,9 +361,11 @@ namespace protogen.CodeGenerators
                     codes.Add(new CodeFile(Path.Combine(path, fn + extension), GenerateSingleFileCode(i)));
                 }
             }
-            if (!string.IsNullOrEmpty(globalTemplate))
+            foreach(var i in globalTemplates)
             {
                 hasTemplate = true;
+                string fn = Path.GetFileNameWithoutExtension(i.FileName);
+                codes.Add(new CodeFile(fn + extension, GenerateGlobalFileCode(set, i.TemplateName, i.TemplateContent)));
             }
 
             if (!hasTemplate)
@@ -415,6 +441,14 @@ namespace protogen.CodeGenerators
             return model;
         }
 
+        GlobalFileModel MakeGlobalFileModel(FileDescriptorSet set)
+        {
+            GlobalFileModel model = new GlobalFileModel();
+            InitializeModel(model);
+            model.Files = set;
+            return model;
+        }
+
         string GenerateCode(string templateName, string template, ModelBase model, int ident)
         {
             var task = engine.CompileRenderStringAsync(templateName, template, model);
@@ -436,6 +470,11 @@ namespace protogen.CodeGenerators
             }
             else
                 return res;
+        }
+
+        string GenerateGlobalFileCode(FileDescriptorSet set, string templateName, string templateContent)
+        {
+            return GenerateCode(templateName, templateContent!, MakeGlobalFileModel(set), 0);
         }
 
         string GenerateSingleFileCode(FileDescriptorProto proto)
