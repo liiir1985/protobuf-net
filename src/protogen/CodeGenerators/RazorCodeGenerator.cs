@@ -39,7 +39,8 @@ namespace protogen.CodeGenerators
                         match => match.Groups[2].Value.ToUpperInvariant() + match.Groups[3].Value.ToLowerInvariant());
                 }
                 // just remove underscores - leave their chosen casing alone
-                return identifier.Replace("_", "");
+                string res = identifier.Replace("_", "");
+                return res.Substring(0, 1).ToUpper() + res.Substring(1);
             }
             public string ToLowerCamel(string val)
             {
