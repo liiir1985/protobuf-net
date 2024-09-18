@@ -1,6 +1,7 @@
 using Google.Protobuf.Reflection;
 using ProtoBuf;
 using ProtoBuf.Reflection;
+using protogen.CodeGenerators;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -71,6 +72,11 @@ namespace protogen
                         case "--csharp_out":
                             outPath = rhs;
                             codegen = CSharpCodeGenerator.Default;
+                            exec = true;
+                            break;
+                        case "--razor_out":
+                            outPath = rhs;
+                            codegen = new RazorCodeGenerator();
                             exec = true;
                             break;
                         case "--vb_out":
