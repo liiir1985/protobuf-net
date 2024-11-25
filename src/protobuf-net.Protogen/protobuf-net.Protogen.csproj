@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
+    <TargetFrameworks>net6.0;</TargetFrameworks>
     <Configurations>Debug;Release;VS</Configurations>
     <PackAsTool>true</PackAsTool>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -13,6 +13,7 @@
     <ApplicationIcon>protobuf-net.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup Condition="'$(GrpcTools)'=='true'">
+    <PreserveCompilationContext>true</PreserveCompilationContext>
     <DefineConstants>$(DefineConstants);GRPC_TOOLS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
@@ -21,5 +22,6 @@
     <ProjectReference Include="../protobuf-net/protobuf-net.csproj" />
     <PackageReference Include="protobuf-net.Grpc.Reflection" Condition="'$(GrpcTools)'=='true'" />
     <PackageReference Include="Grpc.Net.Client" Condition="'$(GrpcTools)'=='true'" />
+    <PackageReference Include="RazorLight" />
   </ItemGroup>
 </Project>
